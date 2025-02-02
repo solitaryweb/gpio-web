@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>LED Control</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .led-control {
+            border: 1px solid #ccc;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+        .button {
+            background-color: #4CAF50;
+            border: none;
+            color: white;
+            padding: 10px 20px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            margin: 4px 2px;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+        .button.off {
+            background-color: #f44336;
+        }
+    </style>
+</head>
+<body>
+    <h1>LED Control Panel</h1>
+    
+    <div id="button-status">
+        ปุ่มกด: <span id="button-state">ไม่กด</span>
+    </div>
+
+    <div class="led-control">
+        <h2>LED 1</h2>
+        <button class="button" onclick="toggleBlink('led1')" id="led1-button">เริ่มกะพริบ</button>
+        <input type="number" step="0.1" min="0.1" value="1.0" id="led1-interval">
+        <button onclick="setInterval('led1')">ตั้งค่าความเร็ว</button>
+    </div>
+
+    <div class="led-control">
+        <h2>LED 2</h2>
+        <button class="button" onclick="toggleBlink('led2')" id="led2-button">เริ่มกะพริบ</button>
+        <input type="number" step="0.1" min="0.1" value="1.0" id="led2-interval">
+        <button onclick="setInterval('led2')">ตั้งค่าความเร็ว</button>
+    </div>
+
+    <div class="led-control">
+        <h2>LED 3</h2>
+        <button class="button" onclick="toggleBlink('led3')" id="led3-button">เริ่มกะพริบ</button>
+        <input type="number" step="0.1" min="0.1" value="1.0" id="led3-interval">
+        <button onclick="setInterval('led3')">ตั้งค่าความเร็ว</button>
+    </div>
+
+    <script>
+        function toggleBlink(led) {
+            fetch('/control', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    led: led,
+                    action: 'toggle_blink'
+                }),
+            })
+            .then(response => response.json())
+            .then(data => {
+                const button = document.getElementById(`${led}-button`);
+                if (data.blinking) {
+                    button.textContent = 'หยุดกะพริบ';
+                    button.classList.add('off');
+                } else {
+                    button.textContent = 'เริ่มกะพริบ';
+                    button.classList.remove('off');
+                }
+            });
+        }
+
+        function setInterval(led) {
+            const interval = document.getElementById(`${led}-interval`).value;
+            fetch('/control', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    led: led,
+                    action: 'set_interval',
+                    interval: interval
+                }),
+            });
+        }
+
+        // ตรวจสอบสถานะปุ่มกดทุก 100ms
+        setInterval(() => {
+            fetch('/button_status')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('button-state').textContent = 
+                        data.pressed ? 'กำลังกด' : 'ไม่กด';
+                });
+        }, 100);
+    </script>
+</body>
+</html> 

@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>GPIO History Graph</title>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f0f0f0;
+        }
+        .graph-container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .button {
+            background-color: #4CAF50;
+            border: none;
+            color: white;
+            padding: 15px 32px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            margin: 4px 2px;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+        .pin-selector {
+            margin: 20px 0;
+        }
+        select {
+            padding: 10px;
+            font-size: 16px;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <h1>GPIO History Graph</h1>
+    <a href="/" class="button">Switch to Control Panel</a>
+    
+    <div class="pin-selector">
+        <select id="pinSelect" onchange="updateGraph()">
+            {% for pin in pins %}
+            <option value="{{ pin }}">GPIO {{ pin }}</option>
+            {% endfor %}
+        </select>
+    </div>
+
+    <div id="graph" class="graph-container"></div>
+
+    <script>
+        function updateGraph() {
+            const pin = document.getElementById('pinSelect').value;
+            fetch(`/history/${pin}`)
+                .then(response => response.json())
+                .then(data => {
+                    const timestamps = data.map(d => new Date(d.timestamp));
+                    const states = data.map(d => d.state);
+
+                    const trace = {
+                        x: timestamps,
+                        y: states,
+                        type: 'scatter',
+                        mode: 'lines',
+                        name: `GPIO ${pin}`,
+                        line: {
+                            shape: 'hv',
+                            width: 2
+                        }
+                    };
+
+                    const layout = {
+                        title: `GPIO ${pin} State History (Last 24 Hours)`,
+                        xaxis: {
+                            title: 'Time',
+                            showgrid: true
+                        },
+                        yaxis: {
+                            title: 'State',
+                            range: [-0.1, 1.1],
+                            ticktext: ['OFF', 'ON'],
+                            tickvals: [0, 1]
+                        }
+                    };
+
+                    Plotly.newPlot('graph', [trace], layout);
+                });
+        }
+
+        // อัพเดทกราฟทุก 5 วินาที
+        updateGraph();
+        setInterval(updateGraph, 5000);
+    </script>
+</body>
+</html> 

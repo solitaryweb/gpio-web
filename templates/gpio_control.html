@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>GPIO Control Panel</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f0f0f0;
+        }
+        .gpio-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+        .gpio-card {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        .gpio-button {
+            width: 100%;
+            padding: 10px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-top: 10px;
+            font-size: 14px;
+            transition: background-color 0.3s;
+        }
+        .gpio-button.on {
+            background-color: #4CAF50;
+            color: white;
+        }
+        .gpio-button.off {
+            background-color: #f44336;
+            color: white;
+        }
+        .status-indicator {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-left: 5px;
+        }
+        .status-on {
+            background-color: #4CAF50;
+        }
+        .status-off {
+            background-color: #f44336;
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+        .button {
+            background-color: #4CAF50;
+            border: none;
+            color: white;
+            padding: 15px 32px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            margin: 4px 2px;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Raspberry Pi GPIO Control Panel</h1>
+    <a href="/graph" class="button" style="float: right;">View History Graph</a>
+    <div class="gpio-grid">
+        {% for pin in pins %}
+        <div class="gpio-card">
+            <h3>GPIO {{ pin }}</h3>
+            <div>
+                Status: <span id="status-text-{{ pin }}">OFF</span>
+                <span class="status-indicator" id="status-indicator-{{ pin }}"></span>
+            </div>
+            <button class="gpio-button off" id="button-{{ pin }}" onclick="togglePin({{ pin }})">
+                Turn ON
+            </button>
+        </div>
+        {% endfor %}
+    </div>
+
+    <script>
+        function togglePin(pin) {
+            fetch(`/toggle/${pin}`, {
+                method: 'POST'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    updatePinStatus(pin, data.state);
+                }
+            });
+        }
+
+        function updatePinStatus(pin, state) {
+            const button = document.getElementById(`button-${pin}`);
+            const statusText = document.getElementById(`status-text-${pin}`);
+            const statusIndicator = document.getElementById(`status-indicator-${pin}`);
+
+            if (state) {
+                button.textContent = 'Turn OFF';
+                button.classList.remove('off');
+                button.classList.add('on');
+                statusText.textContent = 'ON';
+                statusIndicator.classList.add('status-on');
+                statusIndicator.classList.remove('status-off');
+            } else {
+                button.textContent = 'Turn ON';
+                button.classList.remove('on');
+                button.classList.add('off');
+                statusText.textContent = 'OFF';
+                statusIndicator.classList.remove('status-on');
+                statusIndicator.classList.add('status-off');
+            }
+        }
+
+        // อัพเดทสถานะทุก 1 วินาที
+        setInterval(() => {
+            fetch('/status')
+                .then(response => response.json())
+                .then(states => {
+                    for (const [pin, state] of Object.entries(states)) {
+                        updatePinStatus(parseInt(pin), state);
+                    }
+                });
+        }, 1000);
+    </script>
+</body>
+</html> 
