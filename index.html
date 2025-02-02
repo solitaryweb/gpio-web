@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>GPIO Control Panel</title>
+    <script defer>
+        // เก็บสถานะปัจจุบัน
+        var currentStates = {};
+        var lastUpdateTime = 0;
+        var updateInterval = 1000; // 1 วินาที
+        var isUpdating = false;
+
+        function updatePinStatus(pin, state) {
+            // อัพเดทเฉพาะเมื่อสถานะเปลี่ยน
+            if (currentStates[pin] !== state) {
+                var button = document.getElementById('button-' + pin);
+                var statusText = document.getElementById('status-text-' + pin);
+                var statusIndicator = document.getElementById('status-indicator-' + pin);
+
+                if (!button || !statusText || !statusIndicator) {
+                    return;
+                }
+
+                try {
+                    if (state) {
+                        button.textContent = 'Turn OFF';
+                        button.className = 'gpio-button on';
+                        statusText.textContent = 'ON';
+                        statusIndicator.className = 'status-indicator status-on';
+                    } else {
+                        button.textContent = 'Turn ON';
+                        button.className = 'gpio-button off';
+                        statusText.textContent = 'OFF';
+                        statusIndicator.className = 'status-indicator status-off';
+                    }
+                    currentStates[pin] = state;
+                } catch (e) {
+                    console.log('Error updating status for pin ' + pin + ':', e);
+                }
+            }
+        }
+
+        function checkStatus() {
+            // ป้องกันการเรียกซ้ำถ้ายังไม่จบ request เดิม
+            if (isUpdating) return;
+
+            // เช็คว่าถึงเวลาอัพเดทหรือยัง
+            var now = Date.now();
+            if (now - lastUpdateTime < updateInterval) return;
+
+            isUpdating = true;
+            var xhr = new XMLHttpRequest();
+            xhr.open('GET', '/status', true);
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState === 4) {
+                    isUpdating = false;
+                    lastUpdateTime = now;
+
+                    if (xhr.status === 200) {
+                        try {
+                            var states = JSON.parse(xhr.responseText);
+                            for (var pin in states) {
+                                if (states.hasOwnProperty(pin)) {
+                                    updatePinStatus(pin, states[pin]);
+                                }
+                            }
+                        } catch (e) {
+                            console.log('Error checking status:', e);
+                        }
+                    }
+                }
+            };
+            xhr.send();
+        }
+
+        function togglePin(pin) {
+            var xhr = new XMLHttpRequest();
+            xhr.open('POST', '/toggle/' + pin, true);
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState === 4 && xhr.status === 200) {
+                    try {
+                        var data = JSON.parse(xhr.responseText);
+                        if (data.status === 'success') {
+                            updatePinStatus(pin, data.state);
+                            // อัพเดทสถานะทันทีหลังจากกดปุ่ม
+                            lastUpdateTime = Date.now();
+                        }
+                    } catch (e) {
+                        console.log('Error toggling pin:', e);
+                    }
+                }
+            };
+            xhr.send();
+        }
+
+        // เริ่มต้นการทำงาน
+        window.onload = function() {
+            checkStatus(); // เช็คครั้งแรก
+            // เช็คทุก 100ms แต่จะอัพเดทจริงๆ ทุก 1 วินาที
+            setInterval(checkStatus, 100);
+        };
+    </script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f0f0f0;
+        }
+        .gpio-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+        .gpio-card {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        .gpio-button {
+            width: 100%;
+            padding: 10px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-top: 10px;
+            font-size: 14px;
+            transition: background-color 0.3s;
+        }
+        .gpio-button.on {
+            background-color: #4CAF50;
+            color: white;
+        }
+        .gpio-button.off {
+            background-color: #f44336;
+            color: white;
+        }
+        .status-indicator {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-left: 5px;
+        }
+        .status-on {
+            background-color: #4CAF50;
+        }
+        .status-off {
+            background-color: #f44336;
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+        .button {
+            background-color: #4CAF50;
+            border: none;
+            color: white;
+            padding: 15px 32px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            margin: 4px 2px;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Raspberry Pi GPIO Control Panel</h1>
+    <div style="overflow: hidden;">
+        <a href="/graph" class="button" style="float: right;">View History Graph</a>
+    </div>
+    <div class="gpio-grid">
+        {% for pin in pins %}
+        <div class="gpio-card">
+            <h3>GPIO {{ pin }}</h3>
+            <div>
+                Status: <span id="status-text-{{ pin }}">OFF</span>
+                <span class="status-indicator" id="status-indicator-{{ pin }}"></span>
+            </div>
+            <button 
+                class="gpio-button off" 
+                id="button-{{ pin }}" 
+                onclick="togglePin({{ pin }})"
+                type="button"
+            >
+                Turn ON
+            </button>
+        </div>
+        {% endfor %}
+    </div>
+</body>
+</html> 
